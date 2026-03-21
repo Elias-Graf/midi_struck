@@ -91,69 +91,6 @@ mod tests {
         meta_event::{self, MetaEvent},
     };
 
-    // TODO: move to parent
-    // #[test]
-    // fn track_chunk_type_incomplete() {
-    //     let mut track = Track::new(&[b'M', b'T', 0x00]);
-    //
-    //     assert_eq!(
-    //         track.next_event(),
-    //         Err((0, ParseError::ChunkTypeInvalid(vec![b'M', b'T', 0x00])))
-    //     );
-    // }
-
-    // TODO: move to parent
-    // #[test]
-    // fn track_chunk_type_not_track() {
-    //     assert_eq!(
-    //         Track::from_bytes(&[b'M', b'T', b'h', b'd', 0x00]),
-    //         Err((0, ParseError::ChunkTypeInvalid(b"MThd".to_vec())))
-    //     );
-    // }
-
-    // TODO: move to parent
-    // #[test]
-    // fn track_length_missing() {
-    //     assert_eq!(
-    //         Track::from_bytes(CHUNK_TYPE),
-    //         Err((4, ParseError::TrackLengthMissing))
-    //     );
-    // }
-
-    // TODO: move to parent
-    // #[test]
-    // fn track_length_not_enough_bytes() {
-    //     assert_eq!(
-    //         Track::from_bytes(&[CHUNK_TYPE, 1_u32.to_be_bytes().as_slice()].concat()),
-    //         Err((
-    //             8,
-    //             ParseError::TrackLengthNotEnoughBytes {
-    //                 actual: 0,
-    //                 expected: 1,
-    //             }
-    //         ))
-    //     );
-    //     assert_eq!(
-    //         Track::from_bytes(
-    //             &[
-    //                 CHUNK_TYPE,
-    //                 2_u32.to_be_bytes().as_slice(),
-    //                 [0x00].as_slice()
-    //             ]
-    //             .concat()
-    //         ),
-    //         Err((
-    //             8,
-    //             ParseError::TrackLengthNotEnoughBytes {
-    //                 actual: 1,
-    //                 expected: 2,
-    //             }
-    //         ))
-    //     );
-    // }
-
-    // TODO: event error
-
     #[test]
     fn single_event() {
         let bytes = &[
