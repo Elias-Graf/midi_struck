@@ -1,0 +1,20 @@
+pub mod file;
+pub mod message_channel_voice;
+pub mod message_system;
+pub mod meta_event;
+pub mod note;
+pub mod variable_length_quantity;
+
+pub use message_channel_voice::MessageChannelVoice;
+pub use note::Note;
+
+pub trait SliceGetFixed<T> {
+    fn get_fixed<const N: usize>(&self, index: usize) -> Option<&[T; N]>;
+}
+
+impl<T> SliceGetFixed<T> for [T] {
+    fn get_fixed<const N: usize>(&self, index: usize) -> Option<&[T; N]> {
+        self.get(index..index + N)
+            .and_then(|value| value.try_into().ok())
+    }
+}

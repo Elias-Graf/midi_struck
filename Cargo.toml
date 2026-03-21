@@ -1,0 +1,8 @@
+[package]
+name = "midi_struck"
+version = "0.0.1"
+edition = "2024"
+
+[[example]]
+name = "file_dump"
+path = "examples/file_dump.rs"
