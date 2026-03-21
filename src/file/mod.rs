@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::SliceGetFixed;
+use crate::{SliceGetFixed, u32_as_usize};
 
 pub mod event;
 pub mod header;
@@ -83,8 +83,8 @@ impl<'a> Content<'a> {
                 // TODO: unwrap, test
                 .unwrap(),
         );
-        // TODO: assert usize size
-        let track_length = length as usize;
+
+        let track_length = u32_as_usize(length);
         pos += 4;
 
         let chunk_bytes = self

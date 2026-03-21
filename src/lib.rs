@@ -5,6 +5,8 @@ pub mod meta_event;
 pub mod note;
 pub mod variable_length_quantity;
 
+use core::mem;
+
 pub use message_channel_voice::MessageChannelVoice;
 pub use note::Note;
 
@@ -17,4 +19,9 @@ impl<T> SliceGetFixed<T> for [T] {
         self.get(index..index + N)
             .and_then(|value| value.try_into().ok())
     }
+}
+
+pub fn u32_as_usize(input: u32) -> usize {
+    const { assert!(mem::size_of::<u32>() <= mem::size_of::<usize>()) };
+    input as usize
 }

@@ -157,12 +157,10 @@ impl MetaEvent {
 
     fn sequencer_specific_content(bytes: &[u8], length: usize) -> Result<Self, ParseError> {
         let sequencer_specific_bytes =
-            bytes
-                .get(..length)
-                .ok_or(ParseError::DataNotEnoughBytes {
-                    available: bytes.len(),
-                    length,
-                })?;
+            bytes.get(..length).ok_or(ParseError::DataNotEnoughBytes {
+                available: bytes.len(),
+                length,
+            })?;
 
         Ok(Self::SequencerSpecific(sequencer_specific_bytes.to_owned()))
     }
@@ -202,12 +200,10 @@ impl MetaEvent {
     }
 
     fn unknown_content(bytes: &[u8], length: usize) -> Result<Self, ParseError> {
-        let unknown_bytes = bytes
-            .get(..length)
-            .ok_or(ParseError::DataNotEnoughBytes {
-                available: bytes.len(),
-                length,
-            })?;
+        let unknown_bytes = bytes.get(..length).ok_or(ParseError::DataNotEnoughBytes {
+            available: bytes.len(),
+            length,
+        })?;
 
         Ok(Self::Unknown(unknown_bytes.to_vec()))
     }
@@ -233,13 +229,10 @@ impl MetaEvent {
     }
 
     fn string_content(bytes: &[u8], length: usize) -> Result<String, ParseError> {
-        let instrument_name_bytes =
-            bytes
-                .get(..length)
-                .ok_or(ParseError::DataNotEnoughBytes {
-                    available: bytes.len(),
-                    length,
-                })?;
+        let instrument_name_bytes = bytes.get(..length).ok_or(ParseError::DataNotEnoughBytes {
+            available: bytes.len(),
+            length,
+        })?;
 
         Ok(str::from_utf8(instrument_name_bytes)?.to_owned())
     }
@@ -316,10 +309,7 @@ impl std::fmt::Display for ParseError {
                 "data not enough bytes, length: {length}, available: {available}"
             ),
             ParseError::LengthInvalid { length, expected } => {
-                write!(
-                    f,
-                    "length invalid, expected: {expected}, length: {length}"
-                )
+                write!(f, "length invalid, expected: {expected}, length: {length}")
             }
             ParseError::TextInvalid(utf8_error) => write!(f, "received invalid text: {utf8_error}"),
         }

@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut track = match chunk {
             midi_struck::file::Chunk::Track(track) => track,
-            // TODO: add information what th chunk type is
+            // TODO: remove panic & add information what th chunk type is
             midi_struck::file::Chunk::Unknown(_) => {
                 println!("unknown chunk");
                 break;

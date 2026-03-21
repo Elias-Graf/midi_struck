@@ -1,9 +1,6 @@
-use std::{
-    fmt::{Debug, Display},
-    mem,
-};
+use std::fmt::{Debug, Display};
 
-use crate::SliceGetFixed;
+use crate::{SliceGetFixed, u32_as_usize};
 
 pub const CHUNK_TYPE: &[u8; 4] = b"MThd";
 
@@ -21,9 +18,8 @@ impl Header {
             return Err(ParseError::ChunkTypeInvalid(chunk_type.to_vec()));
         }
 
-        const { assert!(mem::size_of::<u32>() <= mem::size_of::<usize>()) };
-        let length =
-            u32::from_be_bytes(*bytes.get_fixed::<4>(4).ok_or(ParseError::LengthMissing)?) as usize;
+        let length = u32::from_be_bytes(*bytes.get_fixed::<4>(4).ok_or(ParseError::LengthMissing)?);
+        let length = u32_as_usize(length);
 
         if length != 6 {
             return Err(ParseError::LengthInvalid {

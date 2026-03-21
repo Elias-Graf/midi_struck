@@ -1,4 +1,6 @@
-use std::{fmt::Display, mem};
+use std::fmt::Display;
+
+use crate::u32_as_usize;
 
 pub fn variable_length_quantity(input: &[u8]) -> Result<(usize, u32), ParseError> {
     const CONTINUATION_BIT_MASK: u8 = 0x80;
@@ -28,8 +30,7 @@ pub fn variable_length_quantity(input: &[u8]) -> Result<(usize, u32), ParseError
 pub fn variable_length_quantity_usize(input: &[u8]) -> Result<(usize, usize), ParseError> {
     let (consumed, value): (_, u32) = variable_length_quantity(input)?;
 
-    const { assert!(mem::size_of::<u32>() <= mem::size_of::<usize>()) };
-    Ok((consumed, value as usize))
+    Ok((consumed, u32_as_usize(value)))
 }
 
 #[derive(Debug, PartialEq)]
