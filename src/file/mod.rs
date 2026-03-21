@@ -24,7 +24,6 @@ pub enum Chunk<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    // TODO: aren't we doing something similar in track?
     ChunkTypeIncomplete { data: Vec<u8>, pos: usize },
 }
 
@@ -42,24 +41,6 @@ impl<'a> Content<'a> {
     pub fn new(bytes: &'a [u8]) -> Result<Self, header::ParseError> {
         let (consumed_header, header) = header::Header::from_bytes(bytes)?;
 
-        //
-        // let mut tracks = Vec::new();
-        // // TODO: unwrap
-        // let mut track_bytes = bytes.get(header_consumed..).unwrap();
-        //
-        // while track_bytes.starts_with(track::CHUNK_TYPE) {
-        //     let (track_consumed, track) =
-        //         track::Track::new(track_bytes).map_err(|(_, err)| ParseError::TrackInvalid {
-        //             number: tracks.len(),
-        //             err,
-        //         })?;
-        //     tracks.push(track);
-        //
-        //     // TODO: unwrap
-        //     track_bytes = track_bytes.get(track_consumed..).unwrap();
-        // }
-        //
-        // Ok(Self { header, tracks })
         Ok(Self {
             header,
             bytes,
@@ -88,6 +69,7 @@ impl<'a> Content<'a> {
             self.bytes
                 .get_fixed::<4>(pos)
                 .ok_or_else(|| ParseError::ChunkTypeIncomplete {
+                    // TODO: Remove clone (to_vec)
                     data: (self.bytes.get(pos..).unwrap_or(&[]).to_vec()),
                     pos,
                 })?;

@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use crate::note::Note;
 
-// TODO: remove prefixes
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Status {
     Pressure,
@@ -79,7 +78,9 @@ impl MessageChannelVoice {
         Ok((
             1,
             Self::ChannelPressure(mask_data(
-                *bytes.first().ok_or(ParseError::PressureValueMissing)?,
+                *bytes
+                    .first()
+                    .ok_or(ParseError::ValueMissing(Status::Pressure))?,
             )),
         ))
     }
@@ -92,7 +93,7 @@ impl MessageChannelVoice {
         let value = bytes
             .get(1)
             .map(|byte| mask_data(*byte))
-            .ok_or(ParseError::ControlChangeValueMissing)?;
+            .ok_or(ParseError::ValueMissing(Status::ControlChange))?;
 
         Ok((2, Self::ControlChange { controller, value }))
     }
@@ -114,13 +115,13 @@ impl MessageChannelVoice {
 
     fn pitch_wheel_change_content(bytes: &[u8]) -> Result<(usize, Self), ParseError> {
         // Per specification the the first bit is the least significant bit for this message.
-        let lsb = *bytes.first().ok_or(ParseError::LengthNotEnoughBytes {
-            actual: 0,
-            expected: 2,
+        let lsb = *bytes.first().ok_or(ParseError::DataNotEnoughBytes {
+            available: 0,
+            length: 2,
         })?;
-        let msb = *bytes.get(1).ok_or(ParseError::LengthNotEnoughBytes {
-            actual: 1,
-            expected: 2,
+        let msb = *bytes.get(1).ok_or(ParseError::DataNotEnoughBytes {
+            available: 1,
+            length: 2,
         })?;
         let value = (u16::from(mask_data(msb))) << 7 | u16::from(mask_data(lsb));
 
@@ -135,7 +136,7 @@ impl MessageChannelVoice {
         let value = bytes
             .get(1)
             .map(|byte| mask_data(*byte))
-            .ok_or(ParseError::PolyphonicKeyPressureValueMissing)?;
+            .ok_or(ParseError::ValueMissing(Status::Polyphonic))?;
 
         Ok((2, Self::PolyphonicKeyPressure { note, value }))
     }
@@ -181,13 +182,10 @@ pub fn mask_data(byte: u8) -> u8 {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    ChannelPressureValueMissing,
     ControlChangeControllerMissing,
-    ControlChangeValueMissing,
-    LengthNotEnoughBytes { actual: usize, expected: usize },
+    DataNotEnoughBytes { available: usize, length: usize },
     NoteMissing(Status),
-    PolyphonicKeyPressureValueMissing,
-    PressureValueMissing,
+    ValueMissing(Status),
     ProgramMissing,
     VelocityMissing(Status, Note),
 }
@@ -195,26 +193,17 @@ pub enum ParseError {
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseError::ChannelPressureValueMissing => {
-                write!(f, "'channel pressure' is missing its value")
-            }
             ParseError::ControlChangeControllerMissing => {
                 write!(f, "'control change' is missing target controller")
             }
-            ParseError::ControlChangeValueMissing => {
-                write!(f, "'control change' is missing its value")
-            }
-            // TODO: add more information about what length? Is this even the correct error name?
-            ParseError::LengthNotEnoughBytes { actual, expected } => write!(
+            ParseError::DataNotEnoughBytes { available, length } => write!(
                 f,
-                "length not enough bytes: expected: {expected}, actual: {actual}"
+                "length not enough bytes: available: {available}, expected length: {length}"
             ),
-            // TODO: more context?
             ParseError::NoteMissing(status) => write!(f, "note for status '{status:?}' is missing"),
-            ParseError::PolyphonicKeyPressureValueMissing => {
-                write!(f, "'polyphonic key pressure' is missing its value")
+            ParseError::ValueMissing(status) => {
+                write!(f, "value for status: '{status:?}' is missing")
             }
-            ParseError::PressureValueMissing => write!(f, "'pressure' is missing its value"),
             ParseError::ProgramMissing => write!(f, "program is missing"),
             ParseError::VelocityMissing(status, note) => {
                 write!(
@@ -283,7 +272,7 @@ mod tests {
     fn channel_pressure_value_missing() {
         assert_eq!(
             MessageChannelVoice::from_bytes(Status::Pressure, &[]),
-            Err(ParseError::PressureValueMissing)
+            Err(ParseError::ValueMissing(Status::Pressure))
         );
     }
 
@@ -311,7 +300,7 @@ mod tests {
     fn control_change_value_missing() {
         assert_eq!(
             MessageChannelVoice::from_bytes(Status::ControlChange, &[0x01]),
-            Err(ParseError::ControlChangeValueMissing)
+            Err(ParseError::ValueMissing(Status::ControlChange))
         );
     }
 
@@ -429,9 +418,9 @@ mod tests {
     fn pitch_wheel_change_missing_lsb() {
         assert_eq!(
             MessageChannelVoice::from_bytes(Status::PitchWheelChange, &[]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 0,
-                expected: 2
+            Err(ParseError::DataNotEnoughBytes {
+                available: 0,
+                length: 2
             })
         );
     }
@@ -440,9 +429,9 @@ mod tests {
     fn pitch_wheel_change_missing_msb() {
         assert_eq!(
             MessageChannelVoice::from_bytes(Status::PitchWheelChange, &[0x01]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 1,
-                expected: 2
+            Err(ParseError::DataNotEnoughBytes {
+                available: 1,
+                length: 2
             })
         );
     }
@@ -478,7 +467,7 @@ mod tests {
     fn polyphonic_key_pressure_value_missing() {
         assert_eq!(
             MessageChannelVoice::from_bytes(Status::Polyphonic, &[0xAB]),
-            Err(ParseError::PolyphonicKeyPressureValueMissing),
+            Err(ParseError::ValueMissing(Status::Polyphonic)),
         );
     }
 

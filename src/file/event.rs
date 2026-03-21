@@ -6,8 +6,6 @@ use crate::{
     variable_length_quantity::{self, variable_length_quantity, variable_length_quantity_usize},
 };
 
-// TODO: move parse error to this file.
-
 #[derive(Debug, PartialEq)]
 pub struct Event {
     pub tick_delta: u32,
@@ -48,7 +46,6 @@ impl Event {
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     DeltaTimeInvalid(variable_length_quantity::ParseError),
-    // TODO: remove if merge content with event
     InputEmpty,
     MessageChannelVoiceInvalid(message_channel_voice::ParseError),
     MessageChannelVoiceStatusInvalid(u8),

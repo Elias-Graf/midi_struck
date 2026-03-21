@@ -47,10 +47,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        // TODO: add position information to more errors.
-        while let Some((consumed_event, event)) = track
-            .next_event()
-            .map_err(|(index, err)| format!("at byte: {index}, got error: {err}"))?
+        while let Some((consumed_event, event)) =
+            track.next_event().map_err(|err| format!("{err}"))?
         {
             let consumed_bytes = file_bytes.get(pos..pos + consumed_event).unwrap_or(&[]);
 

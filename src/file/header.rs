@@ -26,8 +26,8 @@ impl Header {
             u32::from_be_bytes(*bytes.get_fixed::<4>(4).ok_or(ParseError::LengthMissing)?) as usize;
 
         if length != 6 {
-            return Err(ParseError::LengthNotExpected {
-                actual: length,
+            return Err(ParseError::LengthInvalid {
+                length,
                 expected: 6,
             });
         }
@@ -140,7 +140,7 @@ pub enum ParseError {
     FormatInvalid(u16),
     FormatMissing,
     LengthMissing,
-    LengthNotExpected { actual: usize, expected: usize },
+    LengthInvalid { length: usize, expected: usize },
     NumberOfTracksMissing,
     NumberOfTracksNotOne(u16),
 }
@@ -156,12 +156,10 @@ impl Display for ParseError {
             ParseError::DivisionMissing => write!(f, "division is missing"),
             ParseError::FormatInvalid(format) => write!(f, "format invalid: {format}"),
             ParseError::FormatMissing => write!(f, "format is missing"),
-            // TODO: can this be more explicit?
             ParseError::LengthMissing => write!(f, "length is missing"),
-            // TODO: can this be more explicit?
-            ParseError::LengthNotExpected { actual, expected } => write!(
+            ParseError::LengthInvalid { length, expected } => write!(
                 f,
-                "length not expected, expected: {expected}, actual: {actual}"
+                "length not expected, expected: {expected}, length: {length}"
             ),
             ParseError::NumberOfTracksMissing => write!(f, "number of tracks missing"),
             ParseError::NumberOfTracksNotOne(n) => write!(
@@ -201,15 +199,15 @@ mod tests {
     fn length_not_expected() {
         assert_eq!(
             Header::from_bytes(&[b'M', b'T', b'h', b'd', 0x00, 0x00, 0x00, 0x05]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x05,
+            Err(ParseError::LengthInvalid {
+                length: 0x05,
                 expected: 6
             })
         );
         assert_eq!(
             Header::from_bytes(&[b'M', b'T', b'h', b'd', 0x00, 0x00, 0x00, 0x07]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x07,
+            Err(ParseError::LengthInvalid {
+                length: 0x07,
                 expected: 6
             })
         );

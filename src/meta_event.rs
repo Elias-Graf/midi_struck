@@ -159,9 +159,9 @@ impl MetaEvent {
         let sequencer_specific_bytes =
             bytes
                 .get(..length)
-                .ok_or(ParseError::LengthNotEnoughBytes {
-                    actual: bytes.len(),
-                    expected: length,
+                .ok_or(ParseError::DataNotEnoughBytes {
+                    available: bytes.len(),
+                    length,
                 })?;
 
         Ok(Self::SequencerSpecific(sequencer_specific_bytes.to_owned()))
@@ -204,9 +204,9 @@ impl MetaEvent {
     fn unknown_content(bytes: &[u8], length: usize) -> Result<Self, ParseError> {
         let unknown_bytes = bytes
             .get(..length)
-            .ok_or(ParseError::LengthNotEnoughBytes {
-                actual: bytes.len(),
-                expected: length,
+            .ok_or(ParseError::DataNotEnoughBytes {
+                available: bytes.len(),
+                length,
             })?;
 
         Ok(Self::Unknown(unknown_bytes.to_vec()))
@@ -218,17 +218,17 @@ impl MetaEvent {
         actual_length: usize,
     ) -> Result<&[u8; N], ParseError> {
         if actual_length != N {
-            return Err(ParseError::LengthNotExpected {
-                actual: actual_length,
+            return Err(ParseError::LengthInvalid {
+                length: actual_length,
                 expected: N,
             });
         }
 
         bytes
             .get_fixed::<N>(0)
-            .ok_or(ParseError::LengthNotEnoughBytes {
-                actual: bytes.len(),
-                expected: N,
+            .ok_or(ParseError::DataNotEnoughBytes {
+                available: bytes.len(),
+                length: N,
             })
     }
 
@@ -236,9 +236,9 @@ impl MetaEvent {
         let instrument_name_bytes =
             bytes
                 .get(..length)
-                .ok_or(ParseError::LengthNotEnoughBytes {
-                    actual: bytes.len(),
-                    expected: length,
+                .ok_or(ParseError::DataNotEnoughBytes {
+                    available: bytes.len(),
+                    length,
                 })?;
 
         Ok(str::from_utf8(instrument_name_bytes)?.to_owned())
@@ -303,26 +303,22 @@ impl Display for MetaEvent {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    LengthNotEnoughBytes { actual: usize, expected: usize },
-    LengthNotExpected { actual: usize, expected: usize },
+    DataNotEnoughBytes { available: usize, length: usize },
+    LengthInvalid { length: usize, expected: usize },
     TextInvalid(Utf8Error),
 }
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            // TODO: evaluate below comment for all variants.
-            // TODO: evaluate if more context needs to be added to the errors, or if they are
-            // incorrect entirely. E.g. LengthNotEnoughBytes vs ContentLengthUnexpected, or
-            // TextInvalid vs SomeEventTextInvalid.
-            ParseError::LengthNotEnoughBytes { actual, expected } => write!(
+            ParseError::DataNotEnoughBytes { available, length } => write!(
                 f,
-                "length not enough bytes, expeced: {expected}, actual: {actual}"
+                "data not enough bytes, length: {length}, available: {available}"
             ),
-            ParseError::LengthNotExpected { actual, expected } => {
+            ParseError::LengthInvalid { length, expected } => {
                 write!(
                     f,
-                    "unexpected length, expected: {expected}, actual: {actual}"
+                    "length invalid, expected: {expected}, length: {length}"
                 )
             }
             ParseError::TextInvalid(utf8_error) => write!(f, "received invalid text: {utf8_error}"),
@@ -466,15 +462,15 @@ mod tests {
     fn key_signature_length_invalid() {
         assert_eq!(
             MetaEvent::from_bytes(Type::KeySignature, 0, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x00,
+            Err(ParseError::LengthInvalid {
+                length: 0x00,
                 expected: 2
             })
         );
         assert_eq!(
             MetaEvent::from_bytes(Type::KeySignature, 3, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x03,
+            Err(ParseError::LengthInvalid {
+                length: 0x03,
                 expected: 2,
             })
         );
@@ -484,9 +480,9 @@ mod tests {
     fn key_signature_length_not_enough_bytes() {
         assert_eq!(
             MetaEvent::from_bytes(Type::KeySignature, 2, &[0x00]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 1,
-                expected: 0x02
+            Err(ParseError::DataNotEnoughBytes {
+                available: 1,
+                length: 0x02
             })
         );
     }
@@ -529,15 +525,15 @@ mod tests {
     fn sequence_number_length_invalid() {
         assert_eq!(
             MetaEvent::from_bytes(Type::SequenceNumber, 0, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x00,
+            Err(ParseError::LengthInvalid {
+                length: 0x00,
                 expected: 2
             })
         );
         assert_eq!(
             MetaEvent::from_bytes(Type::SequenceNumber, 3, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x03,
+            Err(ParseError::LengthInvalid {
+                length: 0x03,
                 expected: 2,
             })
         );
@@ -547,9 +543,9 @@ mod tests {
     fn sequence_number_length_not_enough_bytes() {
         assert_eq!(
             MetaEvent::from_bytes(Type::SequenceNumber, 2, &[0x00]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 1,
-                expected: 0x02
+            Err(ParseError::DataNotEnoughBytes {
+                available: 1,
+                length: 0x02
             })
         );
     }
@@ -581,16 +577,16 @@ mod tests {
     fn sequencer_specific_not_enough_bytes() {
         assert_eq!(
             MetaEvent::from_bytes(Type::SequencerSpecific, 1, &[]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 0,
-                expected: 0x01
+            Err(ParseError::DataNotEnoughBytes {
+                available: 0,
+                length: 0x01
             })
         );
         assert_eq!(
             MetaEvent::from_bytes(Type::SequencerSpecific, 2, &[0x00]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 1,
-                expected: 0x02
+            Err(ParseError::DataNotEnoughBytes {
+                available: 1,
+                length: 0x02
             })
         );
     }
@@ -611,15 +607,15 @@ mod tests {
     fn set_tempo_length_invalid() {
         assert_eq!(
             MetaEvent::from_bytes(Type::SetTempo, 0, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x00,
+            Err(ParseError::LengthInvalid {
+                length: 0x00,
                 expected: 3
             })
         );
         assert_eq!(
             MetaEvent::from_bytes(Type::SetTempo, 4, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x04,
+            Err(ParseError::LengthInvalid {
+                length: 0x04,
                 expected: 3,
             })
         );
@@ -629,9 +625,9 @@ mod tests {
     fn set_tempo_length_not_enough_bytes() {
         assert_eq!(
             MetaEvent::from_bytes(Type::SetTempo, 3, &[0x00, 0x00]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 2,
-                expected: 0x03
+            Err(ParseError::DataNotEnoughBytes {
+                available: 2,
+                length: 0x03
             })
         );
     }
@@ -658,15 +654,15 @@ mod tests {
     fn smpte_offset_length_invalid() {
         assert_eq!(
             MetaEvent::from_bytes(Type::SmpteOffset, 0, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x00,
+            Err(ParseError::LengthInvalid {
+                length: 0x00,
                 expected: 5
             })
         );
         assert_eq!(
             MetaEvent::from_bytes(Type::SmpteOffset, 6, &[0x00]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x06,
+            Err(ParseError::LengthInvalid {
+                length: 0x06,
                 expected: 5,
             })
         );
@@ -676,9 +672,9 @@ mod tests {
     fn smpte_offset_length_not_enough_bytes() {
         assert_eq!(
             MetaEvent::from_bytes(Type::SmpteOffset, 5, &[0x00, 0x00, 0x00, 0x00]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 4,
-                expected: 0x05
+            Err(ParseError::DataNotEnoughBytes {
+                available: 4,
+                length: 0x05
             })
         );
     }
@@ -722,15 +718,15 @@ mod tests {
     fn time_signature_length_invalid() {
         assert_eq!(
             MetaEvent::from_bytes(Type::TimeSignature, 0, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x00,
+            Err(ParseError::LengthInvalid {
+                length: 0x00,
                 expected: 4
             })
         );
         assert_eq!(
             MetaEvent::from_bytes(Type::TimeSignature, 5, &[]),
-            Err(ParseError::LengthNotExpected {
-                actual: 0x05,
+            Err(ParseError::LengthInvalid {
+                length: 0x05,
                 expected: 4,
             })
         );
@@ -740,9 +736,9 @@ mod tests {
     fn time_signature_length_not_enough_bytes() {
         assert_eq!(
             MetaEvent::from_bytes(Type::TimeSignature, 4, &[0x00, 0x00, 0x00]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 3,
-                expected: 0x04
+            Err(ParseError::DataNotEnoughBytes {
+                available: 3,
+                length: 0x04
             })
         );
     }
@@ -803,9 +799,9 @@ mod tests {
     fn unknown_length_not_enough_bytes() {
         assert_eq!(
             MetaEvent::from_bytes(Type::Unknown(0xFF), 4, &[0x00, 0x00, 0x00]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 3,
-                expected: 0x04
+            Err(ParseError::DataNotEnoughBytes {
+                available: 3,
+                length: 0x04
             })
         );
     }

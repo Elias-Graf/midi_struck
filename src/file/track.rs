@@ -23,7 +23,7 @@ impl<'a> Track<'a> {
         }
     }
 
-    pub fn next_event(&mut self) -> Result<Option<(usize, Event)>, (usize, ParseError)> {
+    pub fn next_event(&mut self) -> Result<Option<(usize, Event)>, ParseError> {
         let mut pos = self.pos;
 
         let Some(event_bytes) = self.bytes.get(pos..) else {
@@ -36,7 +36,12 @@ impl<'a> Track<'a> {
 
         let (consumed_event, event, new_running_status) =
             Event::from_bytes(event_bytes, self.tick, self.running_status)
-                .map_err(|(pos_event, err)| (pos + pos_event, err.into()))?;
+                // TODO: remove clone (to_vec)
+                .map_err(|(pos_event, err)| ParseError::EventInvalid {
+                    data: (self.bytes.get(pos + pos_event..)).unwrap_or(&[]).to_vec(),
+                    pos: pos + pos_event,
+                    err,
+                })?;
 
         self.running_status = new_running_status;
         pos += consumed_event;
@@ -52,7 +57,7 @@ impl<'a> Track<'a> {
     pub fn try_all_events(&mut self) -> Result<Vec<Event>, ParseError> {
         let mut events = Vec::new();
 
-        while let Some((_, event)) = self.next_event().map_err(|(_, err)| err)? {
+        while let Some((_, event)) = self.next_event()? {
             events.push(event);
         }
 
@@ -62,21 +67,18 @@ impl<'a> Track<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    // TODO: just use this error directly?
-    EventInvalid(event::ParseError),
+    EventInvalid {
+        data: Vec<u8>,
+        pos: usize,
+        err: event::ParseError,
+    },
 }
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseError::EventInvalid(parse_error) => write!(f, "{parse_error}"),
+            ParseError::EventInvalid { pos, err, .. } => write!(f, "at {pos}: {err}"),
         }
-    }
-}
-
-impl From<event::ParseError> for ParseError {
-    fn from(value: event::ParseError) -> Self {
-        Self::EventInvalid(value)
     }
 }
 

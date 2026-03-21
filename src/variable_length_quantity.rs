@@ -43,7 +43,6 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ParseError::InputEmpty => write!(f, "input empty"),
-            // TODO: add bytes?
             ParseError::ContinuationIn4thByte => write!(
                 f,
                 "received continuation in 4th byte, max. size of variable length quantity is 4 bytes"
