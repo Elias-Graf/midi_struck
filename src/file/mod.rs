@@ -25,6 +25,12 @@ pub enum Chunk<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
+    ChunkDataNotEnoughBytes {
+        available: usize,
+        length: usize,
+        pos: usize,
+    },
+    ChunkLengthMissing { pos: usize },
     ChunkTypeIncomplete { data: Vec<u8>, pos: usize },
     ChunksNotEnough { count: usize, expected: usize },
     ChunksTooMany { expected: usize },
@@ -33,6 +39,19 @@ pub enum ParseError {
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ParseError::ChunkDataNotEnoughBytes {
+                available,
+                length,
+                pos,
+            } => {
+                write!(
+                    f,
+                    "at: {pos}, chunk data not enough bytes: need {length}, have {available}"
+                )
+            }
+            ParseError::ChunkLengthMissing { pos } => {
+                write!(f, "at: {pos}, chunk length missing")
+            }
             ParseError::ChunkTypeIncomplete { data, pos } => {
                 write!(f, "at: {pos}, chunk type incomplete: {data:?}")
             }
@@ -101,18 +120,21 @@ impl<'a> Content<'a> {
             *self
                 .bytes
                 .get_fixed::<4>(pos)
-                // TODO: unwrap, test
-                .unwrap(),
+                .ok_or(ParseError::ChunkLengthMissing { pos })?,
         );
 
         let track_length = u32_as_usize(length);
         pos += 4;
 
+        let available = self.bytes.len() - pos;
         let chunk_bytes = self
             .bytes
             .get(pos..pos + track_length)
-            // TODO: unwrap, test
-            .unwrap();
+            .ok_or(ParseError::ChunkDataNotEnoughBytes {
+                available,
+                length: track_length,
+                pos,
+            })?;
         pos += track_length;
 
         let chunk = match chunk_type {
@@ -185,6 +207,55 @@ mod tests {
                 pos: 14,
             }
         )
+    }
+
+    #[test]
+    fn chunk_length_missing() {
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x01, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            [0x00, 0x00].as_slice(),
+        ]
+        .concat();
+
+        let mut content = match Content::new(&bytes) {
+            Ok(content) => content,
+            Err(err) => panic!("parsing content was not successful: {err:?}"),
+        };
+
+        assert_eq!(
+            content.next_chunk().unwrap_err(),
+            ParseError::ChunkLengthMissing { pos: 18 }
+        );
+    }
+
+    #[test]
+    fn chunk_data_not_enough_bytes() {
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x01, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            10_u32.to_be_bytes().as_slice(),
+            [0x06, 0xFF, 0x2F, 0x00].as_slice(),
+        ]
+        .concat();
+
+        let mut content = match Content::new(&bytes) {
+            Ok(content) => content,
+            Err(err) => panic!("parsing content was not successful: {err:?}"),
+        };
+
+        assert_eq!(
+            content.next_chunk().unwrap_err(),
+            ParseError::ChunkDataNotEnoughBytes {
+                available: 4,
+                length: 10,
+                pos: 22,
+            }
+        );
     }
 
     #[test]
