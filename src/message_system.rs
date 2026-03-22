@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::mem;
 
 use crate::message_channel_voice::mask_data;
@@ -79,13 +80,13 @@ impl MessageSystem {
     }
 
     fn content_song_position_pointer(bytes: &[u8]) -> Result<(usize, Self), ParseError> {
-        let lsb = *bytes.first().ok_or(ParseError::LengthNotEnoughBytes {
-            actual: 0,
-            expected: 2,
+        let lsb = *bytes.first().ok_or(ParseError::DataNotEnoughBytes {
+            available: 0,
+            length: 2,
         })?;
-        let msb = *bytes.get(1).ok_or(ParseError::LengthNotEnoughBytes {
-            actual: 1,
-            expected: 2,
+        let msb = *bytes.get(1).ok_or(ParseError::DataNotEnoughBytes {
+            available: 1,
+            length: 2,
         })?;
 
         let value = (u16::from(mask_data(msb))) << 7 | u16::from(mask_data(lsb));
@@ -94,9 +95,9 @@ impl MessageSystem {
     }
 
     fn content_song_select(bytes: &[u8]) -> Result<(usize, Self), ParseError> {
-        let byte = *bytes.first().ok_or(ParseError::LengthNotEnoughBytes {
-            actual: 0,
-            expected: 1,
+        let byte = *bytes.first().ok_or(ParseError::DataNotEnoughBytes {
+            available: 0,
+            length: 1,
         })?;
 
         Ok((1, Self::SongSelect(mask_data(byte))))
@@ -119,9 +120,22 @@ impl MessageSystem {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    LengthNotEnoughBytes { actual: usize, expected: usize },
+    DataNotEnoughBytes { available: usize, length: usize },
     SysExEndBeforeStart,
     SysExEndMissing,
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::DataNotEnoughBytes { available, length } => write!(
+                f,
+                "data not enough bytes, length: {length}, available: {available}"
+            ),
+            ParseError::SysExEndBeforeStart => write!(f, "sys ex end before start"),
+            ParseError::SysExEndMissing => write!(f, "sys ex end missing"),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -235,9 +249,9 @@ mod tests {
     fn song_position_pointer_missing_lsb() {
         assert_eq!(
             MessageSystem::from_bytes(Status::SongPositionPointer, &[]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 0,
-                expected: 2
+            Err(ParseError::DataNotEnoughBytes {
+                available: 0,
+                length: 2
             })
         );
     }
@@ -246,9 +260,9 @@ mod tests {
     fn song_position_pointer_missing_msb() {
         assert_eq!(
             MessageSystem::from_bytes(Status::SongPositionPointer, &[0x01]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 1,
-                expected: 2
+            Err(ParseError::DataNotEnoughBytes {
+                available: 1,
+                length: 2
             })
         );
     }
@@ -276,9 +290,9 @@ mod tests {
     fn song_select_missing_byte() {
         assert_eq!(
             MessageSystem::from_bytes(Status::SongSelect, &[]),
-            Err(ParseError::LengthNotEnoughBytes {
-                actual: 0,
-                expected: 1
+            Err(ParseError::DataNotEnoughBytes {
+                available: 0,
+                length: 1
             })
         );
     }
