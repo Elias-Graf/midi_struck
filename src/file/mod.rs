@@ -14,6 +14,7 @@ pub struct Content<'a> {
     header: Header,
     bytes: &'a [u8],
     pos: usize,
+    chunks_consumed: usize,
 }
 
 #[derive(Debug, PartialEq)]
@@ -25,6 +26,8 @@ pub enum Chunk<'a> {
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     ChunkTypeIncomplete { data: Vec<u8>, pos: usize },
+    ChunksNotEnough { count: usize, expected: usize },
+    ChunksTooMany { expected: usize },
 }
 
 impl Display for ParseError {
@@ -32,6 +35,12 @@ impl Display for ParseError {
         match self {
             ParseError::ChunkTypeIncomplete { data, pos } => {
                 write!(f, "at: {pos}, chunk type incomplete: {data:?}")
+            }
+            ParseError::ChunksNotEnough { count, expected } => {
+                write!(f, "not enough chunks: expected {expected}, got {count}")
+            }
+            ParseError::ChunksTooMany { expected } => {
+                write!(f, "too many chunks: expected {expected}")
             }
         }
     }
@@ -45,6 +54,7 @@ impl<'a> Content<'a> {
             header,
             bytes,
             pos: consumed_header,
+            chunks_consumed: 0,
         })
     }
 
@@ -58,11 +68,22 @@ impl<'a> Content<'a> {
 
     pub fn next_chunk(&mut self) -> Result<Option<(usize, Chunk<'_>)>, ParseError> {
         let mut pos = self.pos;
+        let expected = self.header.number_of_tracks as usize;
 
         if let Some(x) = self.bytes.get(pos..)
             && x.is_empty()
         {
+            if self.chunks_consumed < expected {
+                return Err(ParseError::ChunksNotEnough {
+                    count: self.chunks_consumed,
+                    expected,
+                });
+            }
             return Ok(None);
+        }
+
+        if self.chunks_consumed >= expected {
+            return Err(ParseError::ChunksTooMany { expected });
         }
 
         let chunk_type =
@@ -103,6 +124,7 @@ impl<'a> Content<'a> {
         let consumed = pos - self.pos;
 
         self.pos = pos;
+        self.chunks_consumed += 1;
 
         Ok(Some((consumed, chunk)))
     }
@@ -326,13 +348,77 @@ mod tests {
         );
     }
 
-    // TODO:
-    // #[test]
-    // fn after_all_chunks_not_enough_chunks_error() {}
-    //
-    // TODO:
-    // #[test]
-    // fn after_all_chunks_too_many_chunks_error() {}
+    #[test]
+    fn after_all_chunks_not_enough_chunks_error() {
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x02, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            [
+                0x06,
+                meta_event::STATUS,
+                meta_event::Type::EndOfTrack.into(),
+                0x00,
+            ]
+            .as_slice(),
+        ]
+        .concat();
+
+        let mut content = match Content::new(&bytes) {
+            Ok(content) => content,
+            Err(err) => panic!("parsing content was not successful: {err:?}"),
+        };
+
+        assert!(content.next_chunk().unwrap().is_some());
+        assert_eq!(
+            content.next_chunk().unwrap_err(),
+            ParseError::ChunksNotEnough {
+                count: 1,
+                expected: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn after_all_chunks_too_many_chunks_error() {
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x01, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            [
+                0x06,
+                meta_event::STATUS,
+                meta_event::Type::EndOfTrack.into(),
+                0x00,
+            ]
+            .as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            [
+                0x06,
+                meta_event::STATUS,
+                meta_event::Type::EndOfTrack.into(),
+                0x00,
+            ]
+            .as_slice(),
+        ]
+        .concat();
+
+        let mut content = match Content::new(&bytes) {
+            Ok(content) => content,
+            Err(err) => panic!("parsing content was not successful: {err:?}"),
+        };
+
+        assert!(content.next_chunk().unwrap().is_some());
+        assert_eq!(
+            content.next_chunk().unwrap_err(),
+            ParseError::ChunksTooMany { expected: 1 }
+        );
+    }
 
     #[test]
     fn after_all_chunks_none() {
