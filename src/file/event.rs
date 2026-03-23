@@ -50,6 +50,7 @@ pub enum ParseError {
     MessageChannelVoiceInvalid(message_channel_voice::ParseError),
     MessageChannelVoiceStatusInvalid(u8),
     MetaEventInvalid(meta_event::ParseError),
+    MetaEventLengthInvalid(variable_length_quantity::ParseError),
     MetaEventTypeMissing,
 }
 
@@ -71,6 +72,9 @@ impl std::fmt::Display for ParseError {
             }
             ParseError::MetaEventInvalid(parse_error) => {
                 write!(f, "meta event is invalid: {parse_error}")
+            }
+            ParseError::MetaEventLengthInvalid(parse_error) => {
+                write!(f, "meta event length invalid: {parse_error}")
             }
             ParseError::MetaEventTypeMissing => write!(f, "meta event event type is missing"),
         }
@@ -134,8 +138,8 @@ impl Content {
         pos += 1;
 
         let (consumed_length, length) =
-        // TODO unwrap
-        variable_length_quantity_usize(bytes.get(pos..).unwrap_or(&[])).unwrap();
+            variable_length_quantity_usize(bytes.get(pos..).unwrap_or(&[]))
+                .map_err(|err| (pos, ParseError::MetaEventLengthInvalid(err)))?;
         pos += consumed_length;
 
         let meta_event_bytes = bytes.get(pos..pos + length).unwrap_or(&[]);
@@ -335,6 +339,20 @@ mod tests {
     fn content_event_meta_type_missing() {
         let result = Content::from_bytes(&[0xFF], None);
         assert_eq!(result, Err((1, ParseError::MetaEventTypeMissing)));
+    }
+
+    #[test]
+    fn content_event_meta_length_invalid() {
+        let result = Content::from_bytes(&[0xFF, meta_event::Type::EndOfTrack.into()], None);
+        assert_eq!(
+            result,
+            Err((
+                2,
+                ParseError::MetaEventLengthInvalid(
+                    variable_length_quantity::ParseError::InputEmpty
+                )
+            ))
+        );
     }
 
     #[test]

@@ -11,7 +11,11 @@ fn parse_file(bytes: &[u8]) -> (file::Header, Vec<Vec<file::event::Event>>) {
     while let Some((_, chunk)) = content.next_chunk().expect("failed to parse chunk") {
         match chunk {
             Chunk::Track(mut track) => {
-                tracks.push(track.try_all_events().expect("failed to parse track events"));
+                tracks.push(
+                    track
+                        .try_all_events()
+                        .expect("failed to parse track events"),
+                );
             }
             Chunk::Unknown(data) => {
                 todo!("handle unknown chunk: {data:?}");
