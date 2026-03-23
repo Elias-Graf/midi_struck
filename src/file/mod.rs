@@ -30,10 +30,20 @@ pub enum ParseError {
         length: usize,
         pos: usize,
     },
-    ChunkLengthMissing { pos: usize },
-    ChunkTypeIncomplete { data: Vec<u8>, pos: usize },
-    ChunksNotEnough { count: usize, expected: usize },
-    ChunksTooMany { expected: usize },
+    ChunkLengthMissing {
+        pos: usize,
+    },
+    ChunkTypeIncomplete {
+        data: Vec<u8>,
+        pos: usize,
+    },
+    ChunksNotEnough {
+        count: usize,
+        expected: usize,
+    },
+    ChunksTooMany {
+        expected: usize,
+    },
 }
 
 impl Display for ParseError {
@@ -127,14 +137,14 @@ impl<'a> Content<'a> {
         pos += 4;
 
         let available = self.bytes.len() - pos;
-        let chunk_bytes = self
-            .bytes
-            .get(pos..pos + track_length)
-            .ok_or(ParseError::ChunkDataNotEnoughBytes {
-                available,
-                length: track_length,
-                pos,
-            })?;
+        let chunk_bytes =
+            self.bytes
+                .get(pos..pos + track_length)
+                .ok_or(ParseError::ChunkDataNotEnoughBytes {
+                    available,
+                    length: track_length,
+                    pos,
+                })?;
         pos += track_length;
 
         let chunk = match chunk_type {

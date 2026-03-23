@@ -13,21 +13,19 @@ impl Note {
     /// # Examples
     ///
     /// ```
-    /// use midi_struck::note::{Note, PitchClass, HalfTone};
+    /// use midi_struck::note::{Note, PitchClass};
     ///
     /// assert_eq!(
-    ///     Note::from_parts(PitchClass::C, 4, None).index(),
+    ///     Note::from_parts(PitchClass::C, 4).index(),
     ///     60
     /// );
     /// assert_eq!(
-    ///     Note::from_parts(PitchClass::A, 8, Some(HalfTone::Sharp)).index(),
+    ///     Note::from_parts(PitchClass::ASharp, 8).index(),
     ///     118
     /// );
     /// ```
-    pub fn from_parts(pitch_class: PitchClass, octave: u8, half_tone: Option<HalfTone>) -> Self {
-        let half_tone_offset = half_tone.map(|v| v.index_offset()).unwrap_or(0);
-        let index =
-            ((octave + 1) * 12 + pitch_class.index_offset()).wrapping_add_signed(half_tone_offset);
+    pub fn from_parts(pitch_class: PitchClass, octave: u8) -> Self {
+        let index = (octave + 1) * 12 + pitch_class.index_offset();
 
         Self { index }
     }
@@ -35,18 +33,15 @@ impl Note {
     /// # Examples
     ///
     /// ```
-    /// use midi_struck::note::{Note, PitchClass, HalfTone};
+    /// use midi_struck::note::{Note, PitchClass};
     ///
     /// let a0 = Note::new(21);
     /// assert_eq!(a0.octave(), 0);
-    /// assert_eq!(a0.pitch_class_half_tone(), (PitchClass::A, None));
+    /// assert_eq!(a0.pitch_class(), PitchClass::A);
     ///
     /// let f9s = Note::new(126);
     /// assert_eq!(f9s.octave(), 9);
-    /// assert_eq!(
-    ///     f9s.pitch_class_half_tone(),
-    ///     (PitchClass::F, Some(HalfTone::Sharp))
-    /// );
+    /// assert_eq!(f9s.pitch_class(), PitchClass::FSharp);
     /// ```
     pub fn index(&self) -> u8 {
         self.index
@@ -56,20 +51,20 @@ impl Note {
         (self.index / 12).saturating_sub(1)
     }
 
-    pub const fn pitch_class_half_tone(&self) -> (PitchClass, Option<HalfTone>) {
+    pub const fn pitch_class(&self) -> PitchClass {
         match self.index % 12 {
-            0 => (PitchClass::C, None),
-            1 => (PitchClass::C, Some(HalfTone::Sharp)),
-            2 => (PitchClass::D, None),
-            3 => (PitchClass::D, Some(HalfTone::Sharp)),
-            4 => (PitchClass::E, None),
-            5 => (PitchClass::F, None),
-            6 => (PitchClass::F, Some(HalfTone::Sharp)),
-            7 => (PitchClass::G, None),
-            8 => (PitchClass::G, Some(HalfTone::Sharp)),
-            9 => (PitchClass::A, None),
-            10 => (PitchClass::A, Some(HalfTone::Sharp)),
-            _ => (PitchClass::B, None),
+            0 => PitchClass::C,
+            1 => PitchClass::CSharp,
+            2 => PitchClass::D,
+            3 => PitchClass::DSharp,
+            4 => PitchClass::E,
+            5 => PitchClass::F,
+            6 => PitchClass::FSharp,
+            7 => PitchClass::G,
+            8 => PitchClass::GSharp,
+            9 => PitchClass::A,
+            10 => PitchClass::ASharp,
+            _ => PitchClass::B,
         }
     }
 }
@@ -77,15 +72,9 @@ impl Note {
 impl Display for Note {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let octave = self.octave();
-        let (pitch_class, half_tone) = self.pitch_class_half_tone();
+        let pitch_class = self.pitch_class();
 
-        write!(f, "{pitch_class}{octave}")?;
-        if let Some(half_tone) = half_tone {
-            write!(f, "{half_tone}")?;
-        };
-        write!(f, " ({})", self.index)?;
-
-        Ok(())
+        write!(f, "{pitch_class}{octave} ({})", self.index)
     }
 }
 
@@ -98,11 +87,16 @@ impl From<u8> for Note {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum PitchClass {
     C,
+    CSharp,
     D,
+    DSharp,
     E,
     F,
+    FSharp,
     G,
+    GSharp,
     A,
+    ASharp,
     B,
 }
 
@@ -113,21 +107,31 @@ impl PitchClass {
     /// use midi_struck::note::PitchClass;
     ///
     /// assert_eq!(PitchClass::C.index_offset(), 0);
+    /// assert_eq!(PitchClass::CSharp.index_offset(), 1);
     /// assert_eq!(PitchClass::D.index_offset(), 2);
+    /// assert_eq!(PitchClass::DSharp.index_offset(), 3);
     /// assert_eq!(PitchClass::E.index_offset(), 4);
     /// assert_eq!(PitchClass::F.index_offset(), 5);
+    /// assert_eq!(PitchClass::FSharp.index_offset(), 6);
     /// assert_eq!(PitchClass::G.index_offset(), 7);
+    /// assert_eq!(PitchClass::GSharp.index_offset(), 8);
     /// assert_eq!(PitchClass::A.index_offset(), 9);
+    /// assert_eq!(PitchClass::ASharp.index_offset(), 10);
     /// assert_eq!(PitchClass::B.index_offset(), 11);
     /// ```
     pub const fn index_offset(&self) -> u8 {
         match self {
             PitchClass::C => 0,
+            PitchClass::CSharp => 1,
             PitchClass::D => 2,
+            PitchClass::DSharp => 3,
             PitchClass::E => 4,
             PitchClass::F => 5,
+            PitchClass::FSharp => 6,
             PitchClass::G => 7,
+            PitchClass::GSharp => 8,
             PitchClass::A => 9,
+            PitchClass::ASharp => 10,
             PitchClass::B => 11,
         }
     }
@@ -135,128 +139,83 @@ impl PitchClass {
 
 impl Display for PitchClass {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-// TODO: I think there was a proper name for this... accent? accident?
-// TODO: The above comment should still be relevant for strcore, but I'm pretty sure midi doesn't
-// have a concept of sharp or flat. So remove?
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum HalfTone {
-    Flat,
-    Sharp,
-}
-
-impl HalfTone {
-    /// # Examples
-    ///
-    /// ```
-    /// use midi_struck::note::HalfTone;
-    ///
-    /// assert_eq!(HalfTone::Flat.index_offset(), -1);
-    /// assert_eq!(HalfTone::Sharp.index_offset(), 1);
-    /// ```
-    pub const fn index_offset(&self) -> i8 {
         match self {
-            HalfTone::Flat => -1,
-            HalfTone::Sharp => 1,
+            PitchClass::CSharp => write!(f, "C♯"),
+            PitchClass::DSharp => write!(f, "D♯"),
+            PitchClass::FSharp => write!(f, "F♯"),
+            PitchClass::GSharp => write!(f, "G♯"),
+            PitchClass::ASharp => write!(f, "A♯"),
+            other => write!(f, "{other:?}"),
         }
-    }
-}
-
-impl Display for HalfTone {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let symbol = match self {
-            HalfTone::Flat => "♭",
-            HalfTone::Sharp => "♯",
-        };
-
-        write!(f, "{symbol}",)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::note::{HalfTone, Note, PitchClass};
+    use crate::note::{Note, PitchClass};
 
     #[test]
     fn from_index_a0() {
-        assert_eq!(Note::from(21), Note::from_parts(PitchClass::A, 0, None));
+        assert_eq!(Note::from(21), Note::from_parts(PitchClass::A, 0));
     }
 
     #[test]
     fn from_index_c5() {
-        assert_eq!(Note::from(60), Note::from_parts(PitchClass::C, 4, None));
+        assert_eq!(Note::from(60), Note::from_parts(PitchClass::C, 4));
     }
 
     #[test]
     fn from_index_c5_sharp() {
-        assert_eq!(
-            Note::from(61),
-            Note::from_parts(PitchClass::C, 4, Some(HalfTone::Sharp))
-        );
+        assert_eq!(Note::from(61), Note::from_parts(PitchClass::CSharp, 4));
     }
 
     #[test]
     fn from_index_d5() {
-        assert_eq!(Note::from(62), Note::from_parts(PitchClass::D, 4, None));
+        assert_eq!(Note::from(62), Note::from_parts(PitchClass::D, 4));
     }
 
     #[test]
     fn from_index_d5_sharp() {
-        assert_eq!(
-            Note::from(63),
-            Note::from_parts(PitchClass::D, 4, Some(HalfTone::Sharp))
-        );
+        assert_eq!(Note::from(63), Note::from_parts(PitchClass::DSharp, 4));
     }
 
     #[test]
     fn from_index_e5() {
-        assert_eq!(Note::from(64), Note::from_parts(PitchClass::E, 4, None));
+        assert_eq!(Note::from(64), Note::from_parts(PitchClass::E, 4));
     }
 
     #[test]
     fn from_index_f5() {
-        assert_eq!(Note::from(65), Note::from_parts(PitchClass::F, 4, None));
+        assert_eq!(Note::from(65), Note::from_parts(PitchClass::F, 4));
     }
 
     #[test]
     fn from_index_f5_sharp() {
-        assert_eq!(
-            Note::from(66),
-            Note::from_parts(PitchClass::F, 4, Some(HalfTone::Sharp))
-        );
+        assert_eq!(Note::from(66), Note::from_parts(PitchClass::FSharp, 4));
     }
 
     #[test]
     fn from_index_g5() {
-        assert_eq!(Note::from(67), Note::from_parts(PitchClass::G, 4, None));
+        assert_eq!(Note::from(67), Note::from_parts(PitchClass::G, 4));
     }
 
     #[test]
     fn from_index_g5_sharp() {
-        assert_eq!(
-            Note::from(68),
-            Note::from_parts(PitchClass::G, 4, Some(HalfTone::Sharp))
-        );
+        assert_eq!(Note::from(68), Note::from_parts(PitchClass::GSharp, 4));
     }
 
     #[test]
     fn from_index_a5() {
-        assert_eq!(Note::from(69), Note::from_parts(PitchClass::A, 4, None));
+        assert_eq!(Note::from(69), Note::from_parts(PitchClass::A, 4));
     }
 
     #[test]
     fn from_index_a5_sharp() {
-        assert_eq!(
-            Note::from(70),
-            Note::from_parts(PitchClass::A, 4, Some(HalfTone::Sharp))
-        );
+        assert_eq!(Note::from(70), Note::from_parts(PitchClass::ASharp, 4));
     }
 
     #[test]
     fn from_index_b5() {
-        assert_eq!(Note::from(71), Note::from_parts(PitchClass::B, 4, None));
+        assert_eq!(Note::from(71), Note::from_parts(PitchClass::B, 4));
     }
 }

@@ -214,7 +214,7 @@ mod tests {
         file::event::{Content, Event, ParseError},
         message_channel_voice::{self, MessageChannelVoice},
         meta_event::{self, MetaEvent},
-        note::{HalfTone, Note, PitchClass},
+        note::{Note, PitchClass},
         variable_length_quantity,
     };
 
@@ -232,7 +232,7 @@ mod tests {
                 Content::ChannelVoice {
                     is_running_status: false,
                     message: MessageChannelVoice::Off {
-                        note: Note::from_parts(PitchClass::C, 4, None),
+                        note: Note::from_parts(PitchClass::C, 4),
                         velocity: 1,
                     }
                 },
@@ -255,7 +255,7 @@ mod tests {
                 Content::ChannelVoice {
                     is_running_status: false,
                     message: MessageChannelVoice::On {
-                        note: Note::from_parts(PitchClass::F, 5, Some(HalfTone::Sharp)),
+                        note: Note::from_parts(PitchClass::FSharp, 5),
                         velocity: 2,
                     }
                 },
@@ -302,7 +302,7 @@ mod tests {
                 Content::ChannelVoice {
                     is_running_status: false,
                     message: MessageChannelVoice::PolyphonicKeyPressure {
-                        note: Note::from_parts(PitchClass::G, 9, None),
+                        note: Note::from_parts(PitchClass::G, 9),
                         value: 124,
                     }
                 },

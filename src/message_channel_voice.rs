@@ -219,7 +219,7 @@ impl Display for ParseError {
 mod tests {
     use crate::{
         message_channel_voice::{MessageChannelVoice, ParseError, Status, mask_data},
-        note::{HalfTone, Note, PitchClass},
+        note::{Note, PitchClass},
     };
 
     #[test]
@@ -342,7 +342,7 @@ mod tests {
             MessageChannelVoice::from_bytes(Status::NoteOff, &[0x3C]),
             Err(ParseError::VelocityMissing(
                 Status::NoteOff,
-                Note::from_parts(PitchClass::C, 4, None)
+                Note::from_parts(PitchClass::C, 4)
             ))
         );
     }
@@ -354,7 +354,7 @@ mod tests {
             Ok((
                 2,
                 MessageChannelVoice::Off {
-                    note: Note::from_parts(PitchClass::D, 4, None),
+                    note: Note::from_parts(PitchClass::D, 4),
                     velocity: 0x01
                 },
             ))
@@ -364,7 +364,7 @@ mod tests {
             Ok((
                 2,
                 MessageChannelVoice::Off {
-                    note: Note::from_parts(PitchClass::F, 4, Some(HalfTone::Sharp)),
+                    note: Note::from_parts(PitchClass::FSharp, 4),
                     velocity: mask_data(0xFF)
                 }
             ))
@@ -385,7 +385,7 @@ mod tests {
             MessageChannelVoice::from_bytes(Status::NoteOff, &[0x5C]),
             Err(ParseError::VelocityMissing(
                 Status::NoteOff,
-                Note::from_parts(PitchClass::G, 6, Some(HalfTone::Sharp))
+                Note::from_parts(PitchClass::GSharp, 6)
             ))
         );
     }
@@ -397,7 +397,7 @@ mod tests {
             Ok((
                 2,
                 MessageChannelVoice::On {
-                    note: Note::from_parts(PitchClass::E, 4, None),
+                    note: Note::from_parts(PitchClass::E, 4),
                     velocity: 0x01
                 }
             ))
@@ -407,7 +407,7 @@ mod tests {
             Ok((
                 2,
                 MessageChannelVoice::On {
-                    note: Note::from_parts(PitchClass::F, 0, Some(HalfTone::Sharp)),
+                    note: Note::from_parts(PitchClass::FSharp, 0),
                     velocity: mask_data(0xFF)
                 }
             ))
@@ -478,7 +478,7 @@ mod tests {
             Ok((
                 2,
                 MessageChannelVoice::PolyphonicKeyPressure {
-                    note: Note::from_parts(PitchClass::G, 9, None),
+                    note: Note::from_parts(PitchClass::G, 9),
                     value: 0x64
                 }
             )),
@@ -488,7 +488,7 @@ mod tests {
             Ok((
                 2,
                 MessageChannelVoice::PolyphonicKeyPressure {
-                    note: Note::from_parts(PitchClass::G, 9, None),
+                    note: Note::from_parts(PitchClass::G, 9),
                     value: mask_data(0xFF)
                 }
             )),
