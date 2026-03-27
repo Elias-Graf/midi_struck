@@ -1,6 +1,7 @@
 pub mod file;
 pub mod message_channel_voice;
-pub mod message_system;
+pub mod message_system_common;
+pub mod message_system_real_time;
 pub mod meta_event;
 pub mod note;
 pub mod variable_length_quantity;
