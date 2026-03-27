@@ -11,6 +11,8 @@ use core::mem;
 pub use message_channel_voice::MessageChannelVoice;
 pub use note::Note;
 
+// TODO: Add (test) coverage report.
+
 pub trait SliceGetFixed<T> {
     fn get_fixed<const N: usize>(&self, index: usize) -> Option<&[T; N]>;
 }

@@ -111,10 +111,7 @@ mod tests {
 
     #[test]
     fn reset() {
-        assert_eq!(
-            Message::from_bytes(Status::Reset),
-            (0, Message::Reset)
-        );
+        assert_eq!(Message::from_bytes(Status::Reset), (0, Message::Reset));
     }
 
     #[test]

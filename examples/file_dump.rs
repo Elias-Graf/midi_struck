@@ -41,7 +41,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut track = match chunk {
             midi_struck::file::Chunk::Track(track) => track,
             midi_struck::file::Chunk::Unknown(chunk_type, _data) => {
-                println!("unknown chunk: {:?}", std::str::from_utf8(chunk_type).unwrap_or("????"));
+                println!(
+                    "unknown chunk: {:?}",
+                    std::str::from_utf8(chunk_type).unwrap_or("????")
+                );
                 pos += consumed_chunk;
                 continue;
             }

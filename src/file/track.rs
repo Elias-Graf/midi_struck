@@ -46,15 +46,13 @@ impl<'a> Track<'a> {
         self.running_status = new_running_status;
         pos += consumed_event;
 
-        // TODO: test tick
         self.tick = event.tick_absolute;
         self.pos = pos;
 
         Ok(Some((consumed_event, event)))
     }
 
-    // TODO: add tests
-    pub fn try_all_events(&mut self) -> Result<Vec<Event>, ParseError> {
+    pub fn try_all_events(mut self) -> Result<Vec<Event>, ParseError> {
         let mut events = Vec::new();
 
         while let Some((_, event)) = self.next_event()? {
@@ -209,5 +207,89 @@ mod tests {
 
         assert!(track.next_event().unwrap().is_some());
         assert!(track.next_event().unwrap().is_none());
+    }
+
+    #[test]
+    fn tick_accumulates_across_events() {
+        let bytes = [
+            0x0A,
+            message_channel_voice::Status::Pressure.into(),
+            0x08,
+            0x14,
+            0x07,
+            0x05,
+            meta_event::STATUS,
+            meta_event::Type::EndOfTrack.into(),
+            0x00,
+        ];
+        let mut track = Track::new(&bytes);
+
+        let (_, event1) = track.next_event().unwrap().unwrap();
+        assert_eq!(event1.tick_delta, 10);
+        assert_eq!(event1.tick_absolute, 10);
+
+        let (_, event2) = track.next_event().unwrap().unwrap();
+        assert_eq!(event2.tick_delta, 20);
+        assert_eq!(event2.tick_absolute, 30);
+
+        let (_, event3) = track.next_event().unwrap().unwrap();
+        assert_eq!(event3.tick_delta, 5);
+        assert_eq!(event3.tick_absolute, 35);
+    }
+
+    #[test]
+    fn try_all_events_collects_all_events() {
+        let bytes = [
+            0x05,
+            message_channel_voice::Status::Pressure.into(),
+            0x08,
+            0x03,
+            0x07,
+            0x02,
+            meta_event::STATUS,
+            meta_event::Type::EndOfTrack.into(),
+            0x00,
+        ];
+        let track = Track::new(&bytes);
+
+        let events = track.try_all_events().unwrap();
+        assert_eq!(events.len(), 3);
+        assert_eq!(
+            events[0],
+            Event {
+                tick_absolute: 5,
+                tick_delta: 5,
+                content: event::Content::ChannelVoice {
+                    is_running_status: false,
+                    message: MessageChannelVoice::ChannelPressure(8),
+                }
+            }
+        );
+        assert_eq!(
+            events[1],
+            Event {
+                tick_absolute: 8,
+                tick_delta: 3,
+                content: event::Content::ChannelVoice {
+                    is_running_status: true,
+                    message: MessageChannelVoice::ChannelPressure(7),
+                }
+            }
+        );
+        assert_eq!(
+            events[2],
+            Event {
+                tick_absolute: 10,
+                tick_delta: 2,
+                content: MetaEvent::EndOfTrack.into()
+            }
+        );
+    }
+
+    #[test]
+    fn try_all_events_empty_track() {
+        let track = Track::new(&[]);
+        let events = track.try_all_events().unwrap();
+        assert!(events.is_empty());
     }
 }

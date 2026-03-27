@@ -213,18 +213,12 @@ mod tests {
 
     #[test]
     fn sys_ex_empty() {
-        assert_eq!(
-            SysEx::from_bytes(&[]),
-            SysEx(vec![]),
-        );
+        assert_eq!(SysEx::from_bytes(&[]), SysEx(vec![]),);
     }
 
     #[test]
     fn sys_ex_masks_data_bytes() {
-        assert_eq!(
-            SysEx::from_bytes(&[0xFF, 0x80]),
-            SysEx(vec![0x7F, 0x00]),
-        );
+        assert_eq!(SysEx::from_bytes(&[0xFF, 0x80]), SysEx(vec![0x7F, 0x00]),);
     }
 
     #[test]

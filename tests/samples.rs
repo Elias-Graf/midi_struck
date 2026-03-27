@@ -10,7 +10,7 @@ fn parse_file(bytes: &[u8]) -> (file::Header, Vec<Vec<file::event::Event>>) {
 
     while let Some((_, chunk)) = content.next_chunk().expect("failed to parse chunk") {
         match chunk {
-            Chunk::Track(mut track) => {
+            Chunk::Track(track) => {
                 tracks.push(
                     track
                         .try_all_events()
