@@ -2,6 +2,7 @@ use std::fmt::{self, Display};
 
 use crate::{
     message_channel_voice::{self, MessageChannelVoice},
+    message_system_common::{self, SysEx},
     meta_event::{self, MetaEvent},
     variable_length_quantity::{self, variable_length_quantity, variable_length_quantity_usize},
 };
@@ -52,6 +53,7 @@ pub enum ParseError {
     MetaEventInvalid(meta_event::ParseError),
     MetaEventLengthInvalid(variable_length_quantity::ParseError),
     MetaEventTypeMissing,
+    SysExLengthInvalid(variable_length_quantity::ParseError),
 }
 
 impl std::fmt::Display for ParseError {
@@ -77,6 +79,9 @@ impl std::fmt::Display for ParseError {
                 write!(f, "meta event length invalid: {parse_error}")
             }
             ParseError::MetaEventTypeMissing => write!(f, "meta event event type is missing"),
+            ParseError::SysExLengthInvalid(parse_error) => {
+                write!(f, "sysex length invalid: {parse_error}")
+            }
         }
     }
 }
@@ -100,7 +105,7 @@ pub enum Content {
         message: MessageChannelVoice,
     },
     MetaEvent(MetaEvent),
-    // TODO: Sysex
+    SysEx(SysEx),
 }
 
 impl From<MetaEvent> for Content {
@@ -119,8 +124,12 @@ impl Content {
 
         if status_byte == &meta_event::STATUS {
             pos += 1;
-
             return Self::from_bytes_meta_event(bytes, pos);
+        }
+
+        if status_byte == &message_system_common::SYSEX_START {
+            pos += 1;
+            return Self::from_bytes_sysex(bytes, pos);
         }
 
         Self::from_bytes_message_channel_voice(bytes, pos, status_byte, running_status)
@@ -149,6 +158,22 @@ impl Content {
         pos += consumed_meta_event;
 
         Ok((pos, meta_event.into(), None))
+    }
+
+    fn from_bytes_sysex(
+        bytes: &[u8],
+        mut pos: usize,
+    ) -> Result<(usize, Self, Option<message_channel_voice::Status>), (usize, ParseError)> {
+        let (consumed_length, length) =
+            variable_length_quantity_usize(bytes.get(pos..).unwrap_or(&[]))
+                .map_err(|err| (pos, ParseError::SysExLengthInvalid(err)))?;
+        pos += consumed_length;
+
+        let sysex_bytes = bytes.get(pos..pos + length).unwrap_or(&[]);
+        let sysex = SysEx::from_bytes(sysex_bytes);
+        pos += length;
+
+        Ok((pos, Content::SysEx(sysex), None))
     }
 
     fn from_bytes_message_channel_voice(
@@ -207,6 +232,10 @@ impl Display for Content {
                     }
                 ),
                 Content::MetaEvent(meta_event) => format!("meta event {}", meta_event),
+                Content::SysEx(sysex) => {
+                    let hex: Vec<_> = sysex.0.iter().map(|b| format!("{b:02x}")).collect();
+                    format!("sysex [{}]", hex.join(" "))
+                }
             }
         )
     }
@@ -217,6 +246,7 @@ mod tests {
     use crate::{
         file::event::{Content, Event, ParseError},
         message_channel_voice::{self, MessageChannelVoice},
+        message_system_common::{self, SysEx},
         meta_event::{self, MetaEvent},
         note::{Note, PitchClass},
         variable_length_quantity,
@@ -356,6 +386,17 @@ mod tests {
     }
 
     #[test]
+    fn content_event_meta_clears_running_status() {
+        let (_, _, running_status) = Content::from_bytes(
+            &[0xFF, meta_event::Type::EndOfTrack.into(), 0x00],
+            Some(message_channel_voice::Status::NoteOn),
+        )
+        .unwrap();
+
+        assert_eq!(running_status, None);
+    }
+
+    #[test]
     fn content_event_meta() {
         assert_eq!(
             Content::from_bytes(&[0xFF, meta_event::Type::EndOfTrack.into(), 0x00], None),
@@ -367,6 +408,47 @@ mod tests {
                 None
             ),
             Ok((4, Content::MetaEvent(MetaEvent::ChannelPrefix(8)), None))
+        );
+    }
+
+    #[test]
+    fn content_sysex_length_invalid() {
+        assert_eq!(
+            Content::from_bytes(&[message_system_common::SYSEX_START], None),
+            Err((
+                1,
+                ParseError::SysExLengthInvalid(variable_length_quantity::ParseError::InputEmpty)
+            ))
+        );
+    }
+
+    #[test]
+    fn content_sysex_clears_running_status() {
+        let (_, _, running_status) = Content::from_bytes(
+            &[message_system_common::SYSEX_START, 0x01, 0x7F],
+            Some(message_channel_voice::Status::NoteOn),
+        )
+        .unwrap();
+
+        assert_eq!(running_status, None);
+    }
+
+    #[test]
+    fn content_sysex_empty() {
+        assert_eq!(
+            Content::from_bytes(&[message_system_common::SYSEX_START, 0x00], None),
+            Ok((2, Content::SysEx(SysEx(vec![])), None))
+        );
+    }
+
+    #[test]
+    fn content_sysex() {
+        assert_eq!(
+            Content::from_bytes(
+                &[message_system_common::SYSEX_START, 0x03, 0x01, 0x02, 0x03],
+                None
+            ),
+            Ok((5, Content::SysEx(SysEx(vec![0x01, 0x02, 0x03])), None))
         );
     }
 
