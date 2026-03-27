@@ -20,7 +20,7 @@ pub struct Content<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Chunk<'a> {
     Track(Track<'a>),
-    Unknown(&'a [u8]),
+    Unknown(&'a [u8; 4], &'a [u8]),
 }
 
 #[derive(Debug, PartialEq)]
@@ -149,8 +149,7 @@ impl<'a> Content<'a> {
 
         let chunk = match chunk_type {
             track::CHUNK_TYPE => Chunk::Track(Track::new(chunk_bytes)),
-            // TODO: add chunk type to unknown chunk
-            _ => Chunk::Unknown(chunk_bytes),
+            _ => Chunk::Unknown(chunk_type, chunk_bytes),
         };
 
         let consumed = pos - self.pos;
@@ -578,6 +577,72 @@ mod tests {
             Err(err) => panic!("parsing chunk was not successful: {err:?}"),
         };
 
-        assert_eq!(chunk1, Some((10, Chunk::Unknown(&[0x00, 0xFF]))));
+        assert_eq!(chunk1, Some((10, Chunk::Unknown(b"unkn", &[0x00, 0xFF]))));
+    }
+
+    #[test]
+    fn unknown_chunk_with_other_chunks() {
+        let track_data: &[u8] = &[
+            0x00,
+            meta_event::STATUS,
+            meta_event::Type::EndOfTrack.into(),
+            0x00,
+        ];
+
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x04, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            track_data,
+            b"unkn",
+            2_u32.to_be_bytes().as_slice(),
+            [0x00, 0xFF].as_slice(),
+            b"XTRA",
+            3_u32.to_be_bytes().as_slice(),
+            [0x01, 0x02, 0x03].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            track_data,
+        ]
+        .concat();
+
+        let mut content = Content::new(&bytes).unwrap();
+
+        let (_, chunk1) = content.next_chunk().unwrap().unwrap();
+        assert!(matches!(chunk1, Chunk::Track(_)));
+
+        let (_, chunk2) = content.next_chunk().unwrap().unwrap();
+        assert_eq!(chunk2, Chunk::Unknown(b"unkn", &[0x00, 0xFF]));
+
+        let (_, chunk3) = content.next_chunk().unwrap().unwrap();
+        assert_eq!(chunk3, Chunk::Unknown(b"XTRA", &[0x01, 0x02, 0x03]));
+
+        let (_, chunk4) = content.next_chunk().unwrap().unwrap();
+        assert!(matches!(chunk4, Chunk::Track(_)));
+    }
+
+    #[test]
+    fn unknown_chunk_stores_type_and_data() {
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x01, 0x01, 0xE0].as_slice(),
+            b"CuSt",
+            4_u32.to_be_bytes().as_slice(),
+            [0xDE, 0xAD, 0xBE, 0xEF].as_slice(),
+        ]
+        .concat();
+
+        let mut content = Content::new(&bytes).unwrap();
+        let (consumed, chunk) = content.next_chunk().unwrap().unwrap();
+
+        assert_eq!(consumed, 12);
+        let Chunk::Unknown(chunk_type, data) = chunk else {
+            panic!("expected Unknown chunk");
+        };
+        assert_eq!(chunk_type, b"CuSt");
+        assert_eq!(data, &[0xDE, 0xAD, 0xBE, 0xEF]);
     }
 }

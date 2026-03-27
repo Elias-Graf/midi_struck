@@ -17,8 +17,8 @@ fn parse_file(bytes: &[u8]) -> (file::Header, Vec<Vec<file::event::Event>>) {
                         .expect("failed to parse track events"),
                 );
             }
-            Chunk::Unknown(data) => {
-                todo!("handle unknown chunk: {data:?}");
+            Chunk::Unknown(chunk_type, data) => {
+                todo!("handle unknown chunk: type={chunk_type:?}, data={data:?}");
             }
         }
     }
