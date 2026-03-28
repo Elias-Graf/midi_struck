@@ -24,7 +24,7 @@ pub enum Chunk<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ParseError {
+pub enum ParseError<'a> {
     ChunkDataNotEnoughBytes {
         available: usize,
         length: usize,
@@ -34,7 +34,7 @@ pub enum ParseError {
         pos: usize,
     },
     ChunkTypeIncomplete {
-        data: Vec<u8>,
+        data: &'a [u8],
         pos: usize,
     },
     ChunksNotEnough {
@@ -46,7 +46,7 @@ pub enum ParseError {
     },
 }
 
-impl Display for ParseError {
+impl Display for ParseError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ParseError::ChunkDataNotEnoughBytes {
@@ -95,7 +95,7 @@ impl<'a> Content<'a> {
         self.pos
     }
 
-    pub fn next_chunk(&mut self) -> Result<Option<(usize, Chunk<'_>)>, ParseError> {
+    pub fn next_chunk(&mut self) -> Result<Option<(usize, Chunk<'_>)>, ParseError<'a>> {
         let mut pos = self.pos;
         let expected = self.header.number_of_tracks as usize;
 
@@ -119,8 +119,7 @@ impl<'a> Content<'a> {
             self.bytes
                 .get_fixed::<4>(pos)
                 .ok_or_else(|| ParseError::ChunkTypeIncomplete {
-                    // TODO: Remove clone (to_vec)
-                    data: (self.bytes.get(pos..).unwrap_or(&[]).to_vec()),
+                    data: self.bytes.get(pos..).unwrap_or(&[]),
                     pos,
                 })?;
 
@@ -212,7 +211,7 @@ mod tests {
         assert_eq!(
             content.next_chunk().unwrap_err(),
             ParseError::ChunkTypeIncomplete {
-                data: b"MT".to_vec(),
+                data: b"MT".as_slice(),
                 pos: 14,
             }
         )

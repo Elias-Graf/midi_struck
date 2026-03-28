@@ -23,7 +23,7 @@ impl<'a> Track<'a> {
         }
     }
 
-    pub fn next_event(&mut self) -> Result<Option<(usize, Event)>, ParseError> {
+    pub fn next_event(&mut self) -> Result<Option<(usize, Event)>, ParseError<'a>> {
         let mut pos = self.pos;
 
         let Some(event_bytes) = self.bytes.get(pos..) else {
@@ -35,13 +35,13 @@ impl<'a> Track<'a> {
         }
 
         let (consumed_event, event, new_running_status) =
-            Event::from_bytes(event_bytes, self.tick, self.running_status)
-                // TODO: remove clone (to_vec)
-                .map_err(|(pos_event, err)| ParseError::EventInvalid {
-                    data: (self.bytes.get(pos + pos_event..)).unwrap_or(&[]).to_vec(),
+            Event::from_bytes(event_bytes, self.tick, self.running_status).map_err(
+                |(pos_event, err)| ParseError::EventInvalid {
+                    data: (self.bytes.get(pos + pos_event..)).unwrap_or(&[]),
                     pos: pos + pos_event,
                     err,
-                })?;
+                },
+            )?;
 
         self.running_status = new_running_status;
         pos += consumed_event;
@@ -52,7 +52,7 @@ impl<'a> Track<'a> {
         Ok(Some((consumed_event, event)))
     }
 
-    pub fn try_all_events(mut self) -> Result<Vec<Event>, ParseError> {
+    pub fn try_all_events(mut self) -> Result<Vec<Event>, ParseError<'a>> {
         let mut events = Vec::new();
 
         while let Some((_, event)) = self.next_event()? {
@@ -64,15 +64,15 @@ impl<'a> Track<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ParseError {
+pub enum ParseError<'a> {
     EventInvalid {
-        data: Vec<u8>,
+        data: &'a [u8],
         pos: usize,
         err: event::ParseError,
     },
 }
 
-impl std::fmt::Display for ParseError {
+impl std::fmt::Display for ParseError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ParseError::EventInvalid { pos, err, .. } => write!(f, "at {pos}: {err}"),
