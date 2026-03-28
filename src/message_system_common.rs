@@ -8,7 +8,7 @@
 
 use std::fmt::Display;
 
-use crate::message_channel_voice::mask_data;
+use crate::mask_data;
 
 pub const SYSEX_START: u8 = 0xF0;
 pub const SYSEX_END: u8 = 0xF7;
@@ -110,7 +110,7 @@ impl Display for ParseError {
 #[cfg(test)]
 mod tests {
     use crate::{
-        message_channel_voice::mask_data,
+        mask_data,
         message_system_common::{Message, ParseError, Status, SysEx},
     };
 

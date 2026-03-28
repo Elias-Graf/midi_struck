@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::mask_data;
 use crate::note::Note;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -100,7 +101,7 @@ impl MessageChannelVoice {
 
     fn note_content(status: Status, bytes: &[u8]) -> Result<(usize, Note, u8), ParseError> {
         let note = match bytes.first() {
-            Some(n) => (*n).into(),
+            Some(n) => mask_data(*n).into(),
             None => return Err(ParseError::NoteMissing(status)),
         };
         let velocity = match bytes.get(1) {
@@ -131,7 +132,7 @@ impl MessageChannelVoice {
     fn polyphonic_key_pressure(bytes: &[u8]) -> Result<(usize, Self), ParseError> {
         let note = bytes
             .first()
-            .map(|byte| Note::from(*byte))
+            .map(|byte| Note::from(mask_data(*byte)))
             .ok_or(ParseError::NoteMissing(Status::Polyphonic))?;
         let value = bytes
             .get(1)
@@ -174,12 +175,6 @@ impl Display for MessageChannelVoice {
     }
 }
 
-// TODO: move out of this file and ensure is used in any message.
-pub fn mask_data(byte: u8) -> u8 {
-    // Specification demands the first bit be always zero, so we simply mask it off.
-    byte & 0x7F
-}
-
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     ControlChangeControllerMissing,
@@ -218,7 +213,8 @@ impl Display for ParseError {
 #[cfg(test)]
 mod tests {
     use crate::{
-        message_channel_voice::{MessageChannelVoice, ParseError, Status, mask_data},
+        mask_data,
+        message_channel_voice::{MessageChannelVoice, ParseError, Status},
         note::{Note, PitchClass},
     };
 
@@ -360,11 +356,11 @@ mod tests {
             ))
         );
         assert_eq!(
-            MessageChannelVoice::from_bytes(Status::NoteOff, &[0x42, 0xFF]),
+            MessageChannelVoice::from_bytes(Status::NoteOff, &[0xFF, 0xFF]),
             Ok((
                 2,
                 MessageChannelVoice::Off {
-                    note: Note::from_parts(PitchClass::FSharp, 4),
+                    note: Note::from(mask_data(0xFF)),
                     velocity: mask_data(0xFF)
                 }
             ))
@@ -403,11 +399,11 @@ mod tests {
             ))
         );
         assert_eq!(
-            MessageChannelVoice::from_bytes(Status::NoteOn, &[0x12, 0xFF]),
+            MessageChannelVoice::from_bytes(Status::NoteOn, &[0xFF, 0xFF]),
             Ok((
                 2,
                 MessageChannelVoice::On {
-                    note: Note::from_parts(PitchClass::FSharp, 0),
+                    note: Note::from(mask_data(0xFF)),
                     velocity: mask_data(0xFF)
                 }
             ))
@@ -484,11 +480,11 @@ mod tests {
             )),
         );
         assert_eq!(
-            MessageChannelVoice::from_bytes(Status::Polyphonic, &[0x7F, 0xFF]),
+            MessageChannelVoice::from_bytes(Status::Polyphonic, &[0xFF, 0xFF]),
             Ok((
                 2,
                 MessageChannelVoice::PolyphonicKeyPressure {
-                    note: Note::from_parts(PitchClass::G, 9),
+                    note: Note::from(mask_data(0xFF)),
                     value: mask_data(0xFF)
                 }
             )),

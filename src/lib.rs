@@ -28,3 +28,8 @@ pub fn u32_as_usize(input: u32) -> usize {
     const { assert!(mem::size_of::<u32>() <= mem::size_of::<usize>()) };
     input as usize
 }
+
+/// Specification demands the first bit be always zero, so we simply mask it off.
+pub fn mask_data(byte: u8) -> u8 {
+    byte & 0x7F
+}
