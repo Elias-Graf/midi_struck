@@ -95,7 +95,17 @@ impl<'a> Content<'a> {
         self.pos
     }
 
-    pub fn next_chunk(&mut self) -> Result<Option<(usize, Chunk<'_>)>, ParseError<'a>> {
+    pub fn try_all_chunks(mut self) -> Result<Vec<Chunk<'a>>, ParseError<'a>> {
+        let mut chunks = Vec::new();
+
+        while let Some((_, chunk)) = self.next_chunk()? {
+            chunks.push(chunk);
+        }
+
+        Ok(chunks)
+    }
+
+    pub fn next_chunk(&mut self) -> Result<Option<(usize, Chunk<'a>)>, ParseError<'a>> {
         let mut pos = self.pos;
         let expected = self.header.number_of_tracks as usize;
 
@@ -620,6 +630,103 @@ mod tests {
 
         let (_, chunk4) = content.next_chunk().unwrap().unwrap();
         assert!(matches!(chunk4, Chunk::Track(_)));
+    }
+
+    #[test]
+    fn try_all_chunks_propagates_error() {
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x02, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            [
+                0x06,
+                meta_event::STATUS,
+                meta_event::Type::EndOfTrack.into(),
+                0x00,
+            ]
+            .as_slice(),
+        ]
+        .concat();
+
+        let content = Content::new(&bytes).unwrap();
+        assert_eq!(
+            content.try_all_chunks().unwrap_err(),
+            ParseError::ChunksNotEnough {
+                count: 1,
+                expected: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn try_all_chunks_collects_all_chunks() {
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x02, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            [
+                0x06,
+                meta_event::STATUS,
+                meta_event::Type::EndOfTrack.into(),
+                0x00,
+            ]
+            .as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            [
+                0x0A,
+                meta_event::STATUS,
+                meta_event::Type::EndOfTrack.into(),
+                0x00,
+            ]
+            .as_slice(),
+        ]
+        .concat();
+
+        let content = Content::new(&bytes).unwrap();
+        let chunks = content.try_all_chunks().unwrap();
+
+        assert_eq!(chunks.len(), 2);
+        assert!(matches!(chunks[0], Chunk::Track(_)));
+        assert!(matches!(chunks[1], Chunk::Track(_)));
+    }
+
+    #[test]
+    fn try_all_chunks_includes_unknown_chunks() {
+        let track_data: &[u8] = &[
+            0x00,
+            meta_event::STATUS,
+            meta_event::Type::EndOfTrack.into(),
+            0x00,
+        ];
+
+        let bytes = [
+            header::CHUNK_TYPE,
+            6_u32.to_be_bytes().as_slice(),
+            [0x00, 0x01, 0x00, 0x03, 0x01, 0xE0].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            track_data,
+            b"unkn",
+            2_u32.to_be_bytes().as_slice(),
+            [0x00, 0xFF].as_slice(),
+            track::CHUNK_TYPE,
+            4_u32.to_be_bytes().as_slice(),
+            track_data,
+        ]
+        .concat();
+
+        let content = Content::new(&bytes).unwrap();
+        let chunks = content.try_all_chunks().unwrap();
+
+        assert_eq!(chunks.len(), 3);
+        assert!(matches!(chunks[0], Chunk::Track(_)));
+        assert_eq!(chunks[1], Chunk::Unknown(b"unkn", &[0x00, 0xFF]));
+        assert!(matches!(chunks[2], Chunk::Track(_)));
     }
 
     #[test]

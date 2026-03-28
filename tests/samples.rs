@@ -2,26 +2,23 @@ use std::fs;
 
 use midi_struck::file::{self, Chunk, Content};
 
-// TODO: Consider adding a try_all_chunks method to Content, similar to Track::try_all_events
 fn parse_file(bytes: &[u8]) -> (file::Header, Vec<Vec<file::event::Event>>) {
-    let mut content = Content::new(bytes).expect("failed to parse header");
+    let content = Content::new(bytes).expect("failed to parse header");
     let header = content.header().clone();
-    let mut tracks = Vec::new();
 
-    while let Some((_, chunk)) = content.next_chunk().expect("failed to parse chunk") {
-        match chunk {
-            Chunk::Track(track) => {
-                tracks.push(
-                    track
-                        .try_all_events()
-                        .expect("failed to parse track events"),
-                );
-            }
+    let tracks = content
+        .try_all_chunks()
+        .expect("failed to parse chunks")
+        .into_iter()
+        .map(|chunk| match chunk {
+            Chunk::Track(track) => track
+                .try_all_events()
+                .expect("failed to parse track events"),
             Chunk::Unknown(chunk_type, data) => {
                 todo!("handle unknown chunk: type={chunk_type:?}, data={data:?}");
             }
-        }
-    }
+        })
+        .collect();
 
     (header, tracks)
 }
